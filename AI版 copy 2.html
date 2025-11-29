@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>加減乘除 (v36 暱稱防重覆版)</title>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #4e54c8;
+            --primary-dark: #3a4099;
+            --accent: #ff6b6b;
+            --gold: #f1c40f;
+            --danger: #e74c3c;
+            --info: #3498db;
+            --rescue: #2ecc71;
+            --bg-body: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #2d3436;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            padding-bottom: 30px;
+        }
+
+        .lobby-box {
+            margin-top: 5vh;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            padding: 10px 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            transition: 0.3s;
+        }
+
+        .card-frenzy-add {
+            border: 2px solid var(--gold);
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
+        }
+
+        .card-frenzy-sub {
+            border: 2px solid var(--info);
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.5);
+        }
+
+        .lcd-screen {
+            background: #2d3436;
+            color: #55efc4;
+            padding: 15px 20px;
+            text-align: right;
+            margin: 0;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+            transition: background 0.3s;
+        }
+
+        .expr-line {
+            display: block;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            opacity: 0.8;
+            word-break: break-all;
+        }
+
+        .result-line {
+            display: block;
+            font-size: 2.2rem;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+
+        .player-info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .player-badge {
+            background: var(--primary);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .player-badge.is-ai {
+            background: #7f8c8d;
+        }
+
+        .bonus-badge {
+            color: white;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            margin-left: 5px;
+            font-weight: bold;
+            display: none;
+            animation: pulse 1.5s infinite;
+        }
+
+        .badge-double {
+            background: linear-gradient(135deg, #f1c40f 0%, #d35400 100%);
+            display: inline-block;
+        }
+
+        .badge-free {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            display: inline-block;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        .st-fire {
+            background: #ffeaa7;
+            color: #d35400;
+            border: 1px solid #f39c12;
+        }
+
+        .op-row {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            margin-top: 15px;
+        }
+
+        .op-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            user-select: none;
+        }
+
+        .op-btn.selected {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.15);
+            box-shadow: 0 5px 15px rgba(78, 84, 200, 0.3);
+        }
+
+        .op-btn.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+
+        .op-btn.bonus-double {
+            border-color: var(--gold);
+            color: #d35400;
+            font-weight: bold;
+        }
+
+        .op-btn.selected.bonus-double {
+            background: var(--gold);
+            color: white;
+        }
+
+        .op-btn.bonus-rescue {
+            border-color: var(--rescue);
+            color: var(--rescue);
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(46, 204, 113, 0.4);
+        }
+
+        .op-btn.selected.bonus-rescue {
+            background: var(--rescue);
+            color: white;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.6);
+        }
+
+        .op-btn.bonus-round1 {
+            border-color: #9b59b6;
+            color: #8e44ad;
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(155, 89, 182, 0.4);
+        }
+
+        .op-btn.selected.bonus-round1 {
+            background: #9b59b6;
+            color: white;
+            box-shadow: 0 0 15px rgba(155, 89, 182, 0.6);
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-btn:disabled {
+            background: #ccc !important;
+            color: #888 !important;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none !important;
+        }
+
+        .action-btn.bonus-btn {
+            background: linear-gradient(135deg, #f1c40f 0%, #d35400 100%);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .used-nums-display {
+            font-size: 0.85rem;
+            color: #e74c3c;
+            text-align: center;
+            margin-bottom: 10px;
+            min-height: 1.2em;
+            font-weight: bold;
+        }
+
+        #dice-container {
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+
+        .dice-box {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border: 3px solid #2d3436;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.8);
+        }
+
+        .rolling {
+            animation: shake 0.2s infinite;
+            background: #ffeaa7 !important;
+        }
+
+        .dice-finished {
+            background: #fffa65 !important;
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+
+        @keyframes shake {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            25% {
+                transform: rotate(5deg);
+            }
+
+            75% {
+                transform: rotate(-5deg);
+            }
+
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        #wait-msg {
+            color: #e74c3c;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* 玩家列表與按鈕 */
+        .player-list {
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .p-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #eee;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        .p-row.active {
+            border: 2px solid var(--primary);
+            background: #fff;
+        }
+
+        .btn-kick {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        #toast-msg {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 25px 30px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            text-align: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            width: 85%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid #e74c3c;
+        }
+
+        #toast-msg.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .helper-btn {
+            background: #95a5a6;
+            font-size: 0.9rem;
+            padding: 10px;
+            margin-top: 5px;
+            width: 32%;
+        }
+
+        .round-divider {
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 10px 0;
+            border-bottom: 1px dashed var(--primary);
+        }
+
+        /* 房間列表項目 */
+        .room-list-box {
+            margin-top: 20px;
+            text-align: left;
+            border-top: 1px dashed #ccc;
+            padding-top: 15px;
+        }
+
+        .room-item {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-list-join {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <div id="toast-msg"></div>
+
+        <div id="lobby-screen" class="lobby-box">
+            <div class="card">
+                <h1 style="color:var(--primary)">🎲 加減乘除 </h1>
+                <div class="input-group">
+                    <label>你的名字 / 暱稱</label>
+                    <input type="text" id="my-name" placeholder="例如: 小明" maxlength="8">
+                </div>
+
+                <div class="input-group">
+                    <label>房間號碼</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="room-id" placeholder="8888" style="flex:1;">
+                        <button class="action-btn"
+                            style="width: auto; padding: 0 15px; font-size: 0.9rem; background: #6c5ce7;"
+                            onclick="autoFillRandomRoom()">🎲 隨機</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <button id="btn-create" class="action-btn" style="background:var(--info)">建立房間</button>
+                    <button id="btn-join" class="action-btn">加入遊戲</button>
+                </div>
+
+                <div style="display:flex; justify-content:center; flex-wrap:wrap; margin-top: 10px;">
+                    <button id="btn-refresh-list" class="action-btn helper-btn"
+                        style="background:#2ecc71; width: 100%;">📋
+                        刷新列表</button>
+                </div>
+
+                <div id="room-list-area" class="room-list-box hidden">
+                    <div id="room-list-content">載入中...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="setup-screen" class="lobby-box hidden">
+            <div class="card">
+                <h1>設定目標 (房主)</h1>
+                <p>管理玩家與設定目標：</p>
+                <div id="lobby-players" class="player-list"></div>
+
+                <button class="action-btn" onclick="fillWithAI()"
+                    style="background:#34495e; font-size:0.9rem; margin-bottom:10px;">🤖 填滿 AI (補位)</button>
+
+                <hr style="margin: 10px 0; border:0; border-top:1px solid #eee;">
+                <p>設定目標數字:</p>
+                <input type="number" id="target-input" value="2486"
+                    style="padding:10px; font-size:1.5rem; width:100%; text-align:center; margin-bottom:20px;">
+                <button id="btn-start-game" class="action-btn">開始對戰</button>
+                <button class="action-btn btn-exit" onclick="leaveRoom()"
+                    style="background:#95a5a6; margin-top:10px;">🚪 退出房間</button>
+            </div>
+        </div>
+
+        <div id="wait-start-screen" class="lobby-box hidden">
+            <div class="card">
+                <h2>⏳ 等待房主開始</h2>
+                <p>房號: <span id="wait-room-id" style="font-weight:bold; color:var(--primary)"></span></p>
+                <div id="wait-players" class="player-list"></div>
+                <button class="action-btn btn-exit" onclick="leaveRoom()"
+                    style="background:#95a5a6; margin-top:10px;">🚪 退出房間</button>
+            </div>
+        </div>
+
+        <div id="game-screen" class="hidden">
+
+            <div class="sticky-header">
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-size:0.8rem; color:#888;">Target</span>
+                    <span style="font-size:1.4rem; font-weight:800; color:var(--primary)" id="target-display">0</span>
+                </div>
+
+                <div style="display:flex; flex-direction:column; align-items:center;">
+                    <span style="font-size:0.8rem; color:#e74c3c; font-weight:bold;" id="zero-count-display">📉 歸零:
+                        0/3</span>
+                </div>
+
+                <div style="text-align:right;">
+                    <span style="font-size:0.8rem; color:#888;">Round</span><br>
+                    <span id="round-display" style="font-weight:bold;">1 / 15</span>
+                </div>
+            </div>
+
+            <div class="lcd-screen" id="lcd-bg">
+                <span class="expr-line" id="expression-display">0</span>
+                <span class="result-line" id="current-eval-lcd">0</span>
+            </div>
+
+            <div style="font-size:0.7rem; color:#666; text-align:center; background:#eee;">順序: 1→2→3→4 ⇄ 4→3→2→1</div>
+
+            <div style="padding: 10px 15px;">
+                <div id="status-badges" style="display:flex; gap:5px; justify-content:center; margin-bottom:5px;"></div>
+                <div id="ingame-players" class="player-list"></div>
+            </div>
+
+            <div class="card" id="turn-ui">
+                <div class="player-info-bar">
+                    <div>
+                        <span id="current-player-name" class="player-badge">等待中...</span>
+                        <span id="badge-double" class="bonus-badge badge-double">🔥雙骰火力</span>
+                        <span id="badge-free" class="bonus-badge badge-free">🔓自由選擇</span>
+                    </div>
+                    <span id="op-hint" style="font-size:0.8rem; color:#999;"></span>
+                </div>
+
+                <input type="number" id="player-num-input" placeholder="輸入數字 (1-9)"
+                    style="width:100%; padding:15px; font-size:1.5rem; text-align:center; border:2px solid #eee; border-radius:10px; margin-bottom:5px; background: #fff;"
+                    disabled>
+
+                <div id="used-nums-display" class="used-nums-display"></div>
+
+                <div id="op-buttons-container" class="op-row"></div>
+
+                <div id="dice-container" class="hidden">
+                    <div id="dice-visual-1" class="dice-box">?</div>
+                    <div id="dice-visual-2" class="dice-box hidden">?</div>
+                </div>
+
+                <button id="submit-btn" class="action-btn" disabled>等待其他玩家...</button>
+            </div>
+
+            <div class="card" style="background:#f9f9f9; padding:10px;">
+                <div style="font-size:0.8rem; font-weight:bold; color:#555; margin-bottom:5px;">📜 戰況速報 (最新在下)</div>
+                <div id="game-log" style="height:150px; overflow-y:auto; font-size:0.85rem; color:#666;"></div>
+            </div>
+
+            <button onclick="leaveRoom()"
+                style="font-size:0.8rem; background:#95a5a6; color:white; border:none; padding:8px; border-radius:4px; margin:10px auto; display:block;">🚪
+                退出房間</button>
+        </div>
+
+        <div id="result-screen" class="hidden lobby-box">
+            <div class="card">
+                <h2>🏆 遊戲結束</h2>
+                <p>最終結果: <span id="final-value" style="font-size:2rem; font-weight:bold; color:var(--primary)">0</span>
+                </p>
+                <div id="winner-announce" style="font-size:1.5rem; font-weight:bold; margin:20px 0;"></div>
+
+                <div id="host-controls" style="display: none; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button class="action-btn" style="background: #2ecc71;" onclick="returnToRoom()">🏠 回到房間
+                        (重設)</button>
+                </div>
+
+                <button class="action-btn btn-exit" onclick="leaveRoom()" style="margin-top:10px;">🚪 退出房間</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 1. Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoGMRKvo1WpVsjNCML6_KUpadao-4N6NY",
+            authDomain: "mathgame-1e999.firebaseapp.com",
+            databaseURL: "https://mathgame-1e999-default-rtdb.firebaseio.com",
+            projectId: "mathgame-1e999",
+            storageBucket: "mathgame-1e999.firebasestorage.app",
+            messagingSenderId: "331451652458",
+            appId: "1:331451652458:web:4d03fb4c08e2ca32206d13",
+            measurementId: "G-5SN0H2HEF3"
+        };
+
+        try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) { alert("Firebase Error"); }
+        const db = firebase.database();
+
+        // 2. Audio & Utils
+        let customAudio = null;
+        try { customAudio = new Audio('dice.mp3'); } catch (e) { }
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playDiceSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (customAudio) {
+                customAudio.currentTime = 0;
+                const p = customAudio.play();
+                if (p !== undefined) p.catch(() => playSyntheticSound());
+            } else { playSyntheticSound(); }
+        }
+
+        function playSyntheticSound() {
+            const bufferSize = audioCtx.sampleRate * 0.2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            noise.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        document.addEventListener('click', function () { if (audioCtx.state === 'suspended') audioCtx.resume(); }, { once: true });
+
+        // Global Vars
+        let myName = "";
+        let roomId = "";
+        let myPlayerIndex = -1;
+        let localGameState = {};
+        let animationInterval = null;
+        let animTimeout = null;
+        let lastProcessedTimestamp = 0;
+        let isHost = false;
+        let currentPlayersCache = [];
+        let currentStatus = 'setup';
+        let isSelfLeaving = false; // 標記自己是否主動離開
+
+        const ZERO_WIN_THRESHOLD = 3;
+        const totalRounds = 15;
+        const ANIMATION_DURATION = 1500;
+        const END_GAME_DELAY = 3000;
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerHTML = msg;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 4000);
+        }
+
+        // 3. Events
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('btn-create').onclick = function () { joinRoom('host'); };
+            document.getElementById('btn-join').onclick = function () { joinRoom('guest'); };
+            document.getElementById('btn-refresh-list').onclick = function () { fetchRoomList(); };
+            document.getElementById('btn-start-game').onclick = function () { hostStartGame(); };
+            document.getElementById('submit-btn').onclick = function () { handleRollClick(); };
+
+            document.getElementById('player-num-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    const btn = document.getElementById('submit-btn');
+                    if (!btn.disabled) handleRollClick();
+                }
+            });
+
+            // 斷線/關閉視窗 雙保險
+            window.addEventListener('beforeunload', function () {
+                // 只有在非主動離開時才觸發這個
+                if (roomId && myPlayerIndex !== -1 && !isSelfLeaving) {
+                    handleDisconnect(currentStatus);
+                }
+            });
+        });
+
+        function handleDisconnect(status) {
+            if (status === 'setup') {
+                // Setup 階段
+            } else {
+                // Playing 階段
+            }
+        }
+
+        // 4. Lobby Logic
+        window.autoFillRandomRoom = function () {
+            const rId = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('room-id').value = rId;
+        };
+
+        window.joinSpecificRoom = function (rId) {
+            document.getElementById('room-id').value = rId;
+            joinRoom('guest');
+        };
+
+        function fetchRoomList() {
+            const listBox = document.getElementById('room-list-area');
+            const listContent = document.getElementById('room-list-content');
+            listBox.classList.remove('hidden');
+            listContent.innerHTML = "載入中...";
+
+            db.ref('rooms').once('value').then(snap => {
+                if (!snap.exists()) {
+                    listContent.innerHTML = "目前沒有房間";
+                    return;
+                }
+                listContent.innerHTML = "";
+                snap.forEach(child => {
+                    const rId = child.key;
+                    const data = child.val();
+                    const status = data.status || 'unknown';
+                    const players = data.players ? Object.values(data.players) : []; // 確保是陣列
+                    const pCount = players.length;
+                    let statusText = status === 'setup' ? '等待中' : '進行中';
+                    let badgeClass = status === 'setup' ? 'bg-wait' : 'bg-play';
+
+                    const div = document.createElement('div');
+                    div.className = 'room-item';
+                    div.innerHTML = `
+                    <span><strong>${rId}</strong> (${pCount}/4) - ${statusText}</span>
+                    <button class="btn-list-join" onclick="joinSpecificRoom('${rId}')">➡️ 加入</button>
+                `;
+                    listContent.appendChild(div);
+                });
+            });
+        }
+
+        // 退出房間：根據狀態決定行為
+        window.leaveRoom = function () {
+            isSelfLeaving = true;
+            if (!roomId || myPlayerIndex === -1) { location.reload(); return; }
+
+            if (currentStatus === 'setup') {
+                db.ref(`rooms/${roomId}/players`).once('value').then(snap => {
+                    let players = snap.val() || [];
+                    players = players.filter(p => p !== null);
+                    const idx = players.indexOf(myName);
+                    if (idx !== -1) {
+                        players.splice(idx, 1);
+
+                        if (players.length === 0) {
+                            db.ref('rooms/' + roomId).remove().then(() => location.reload());
+                        } else {
+                            db.ref(`rooms/${roomId}/players`).set(players).then(() => location.reload());
+                        }
+                    } else {
+                        location.reload();
+                    }
+                });
+
+            } else {
+                const humans = currentPlayersCache.filter(p => !p.includes('🤖'));
+                if (humans.length <= 1 && humans.includes(myName)) {
+                    db.ref('rooms/' + roomId).remove().then(() => location.reload());
+                } else {
+                    db.ref(`rooms/${roomId}/players/${myPlayerIndex}`).set(`🤖 Bot ${myPlayerIndex + 1}`).then(() => location.reload());
+                }
+            }
+        };
+
+        window.returnToRoom = function () {
+            db.ref(`rooms/${roomId}/gameState`).remove();
+            db.ref(`rooms/${roomId}/logs`).remove();
+            db.ref(`rooms/${roomId}/status`).set('setup');
+        };
+
+        // ★ 踢人功能 (Host Only)
+        window.kickPlayer = function (index) {
+            if (!confirm("確定要踢出這位玩家嗎？")) return;
+
+            db.ref(`rooms/${roomId}/players`).once('value').then(snap => {
+                let players = snap.val() || [];
+                players = players.filter(p => p !== null);
+
+                if (index >= 0 && index < players.length) {
+                    players.splice(index, 1);
+                    players = normalizeBots(players);
+                    db.ref(`rooms/${roomId}/players`).set(players);
+                }
+            });
+        };
+
+        // ★ 填滿 AI (Host Only)
+        window.fillWithAI = function () {
+            db.ref(`rooms/${roomId}/players`).once('value').then(snap => {
+                let players = snap.val() || [];
+                players = players.filter(p => p !== null); // 清理 holes
+
+                if (players.length >= 4) return alert("房間已滿");
+
+                while (players.length < 4) {
+                    players.push("BOT_PLACEHOLDER");
+                }
+
+                players = normalizeBots(players);
+                db.ref(`rooms/${roomId}/players`).set(players);
+            });
+        };
+
+        function normalizeBots(players) {
+            return players.map((p, i) => {
+                if (p && (p.includes('🤖') || p === "BOT_PLACEHOLDER")) return `🤖 Bot ${i + 1}`;
+                return p;
+            });
+        }
+
+        function joinRoom(role) {
+            myName = document.getElementById('my-name').value.trim();
+            roomId = document.getElementById('room-id').value.trim();
+            if (!myName || !roomId) return alert("請輸入名字和房號");
+
+            const roomRef = db.ref('rooms/' + roomId);
+
+            if (role === 'host') {
+                // Host Logic
+                roomRef.get().then((snapshot) => {
+                    if (snapshot.exists()) {
+                        alert("❌ 該房號已存在，無法建立！請換一個號碼。");
+                        return;
+                    } else {
+                        createRoom(roomRef);
+                    }
+                });
+            } else {
+                // Guest Logic
+                roomRef.get().then(snapshot => {
+                    if (!snapshot.exists()) return alert("房間不存在");
+                    const data = snapshot.val();
+                    let currentPlayers = data.players ? Object.values(data.players) : [];
+                    // Filter nulls
+                    currentPlayers = currentPlayers.filter(p => p !== null);
+
+                    // ★★★ 新增：檢查暱稱重複 ★★★
+                    if (currentPlayers.includes(myName)) {
+                        alert("⚠️ 房間內已有相同暱稱的玩家！請更換名字再試。");
+                        return;
+                    }
+
+                    if (currentPlayers.length >= 4) return alert("房間已滿");
+                    if (data.status !== 'setup') return alert("遊戲已開始");
+
+                    db.ref(`rooms/${roomId}/players/${currentPlayers.length}`).set(myName)
+                        .then(() => enterRoomLogic());
+                });
+            }
+        }
+
+        function createRoom(roomRef) {
+            roomRef.set({
+                status: 'setup',
+                target: 2486,
+                players: [myName],
+                gameState: null,
+                logs: {}
+            }).then(() => enterRoomLogic());
+        }
+
+        function enterRoomLogic() {
+            document.getElementById('lobby-screen').classList.add('hidden');
+            setupPlayerListener();
+            monitorRoomStatus();
+        }
+
+        function monitorRoomStatus() {
+            db.ref(`rooms/${roomId}/status`).on('value', snap => {
+                const val = snap.val();
+                currentStatus = val;
+
+                if (val === null) {
+                    if (!isSelfLeaving) { alert("房間已關閉"); location.reload(); }
+                    return;
+                }
+
+                document.getElementById('setup-screen').classList.add('hidden');
+                document.getElementById('wait-start-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.add('hidden');
+                document.getElementById('result-screen').classList.add('hidden');
+
+                if (val === 'setup') {
+                    if (isHost) document.getElementById('setup-screen').classList.remove('hidden');
+                    else document.getElementById('wait-start-screen').classList.remove('hidden');
+
+                    db.ref(`rooms/${roomId}/players/${myPlayerIndex}`).onDisconnect().remove();
+
+                } else if (val === 'playing') {
+                    document.getElementById('game-screen').classList.remove('hidden');
+                    startGameUI();
+                    db.ref(`rooms/${roomId}/players/${myPlayerIndex}`).onDisconnect().set(`🤖 Bot ${myPlayerIndex + 1}`);
+
+                } else if (val === 'finished') {
+                    document.getElementById('game-screen').classList.remove('hidden');
+                    setTimeout(() => {
+                        document.getElementById('game-screen').classList.add('hidden');
+                        document.getElementById('result-screen').classList.remove('hidden');
+                        endGame();
+                    }, END_GAME_DELAY);
+                }
+            });
+        }
+
+        function setupPlayerListener() {
+            db.ref(`rooms/${roomId}/players`).on('value', snap => {
+                let rawPlayers = snap.val() || [];
+                const players = rawPlayers.filter(p => p !== null);
+
+                currentPlayersCache = players;
+
+                if (!players.includes(myName)) {
+                    if (!isSelfLeaving) {
+                        alert("🚫 你已被房主踢出房間");
+                        location.reload();
+                    }
+                    return;
+                }
+
+                if (currentStatus === 'setup' && isHost) {
+                    let hasNull = false;
+                    if (Array.isArray(rawPlayers)) {
+                        if (rawPlayers.some(p => p === null)) hasNull = true;
+                    } else {
+                        hasNull = true;
+                    }
+
+                    if (hasNull) {
+                        console.log("Host cleaning up player list...");
+                        db.ref(`rooms/${roomId}/players`).set(players);
+                        return;
+                    }
+                }
+
+                myPlayerIndex = players.indexOf(myName);
+                isHost = (myPlayerIndex === 0);
+
+                const setupListHtml = players.map((p, idx) => {
+                    let row = `<div class="p-row ${p === myName ? 'active' : ''}">
+                    <span>${idx + 1}. ${p} ${idx === 0 ? "(👑)" : ""}</span>`;
+                    if (isHost && idx !== 0) {
+                        row += `<button class="btn-kick" onclick="kickPlayer(${idx})">❌ 踢出</button>`;
+                    }
+                    row += `</div>`;
+                    return row;
+                }).join('');
+
+                const waitListHtml = players.map((p, idx) => {
+                    return `<div class="p-row ${p === myName ? 'active' : ''}"><span>${idx + 1}. ${p}</span></div>`;
+                }).join('');
+
+                document.getElementById('lobby-players').innerHTML = setupListHtml;
+                document.getElementById('wait-players').innerHTML = waitListHtml;
+
+                const ingameHtml = players.map((p, idx) => {
+                    let cls = 'p-slot';
+                    if (p === myName) cls += ' active';
+                    if (localGameState.currentTurnData && localGameState.currentTurnData.playerIdx === idx) cls += ' current-turn';
+                    return `<span class="${cls}">${p}</span>`;
+                }).join('');
+                document.getElementById('ingame-players').innerHTML = ingameHtml;
+            });
+        }
+
+        // =========================================================
+        // 5. 遊戲與 AI 邏輯
+        // =========================================================
+        function hostStartGame() {
+            const target = parseInt(document.getElementById('target-input').value);
+
+            db.ref(`rooms/${roomId}/players`).once('value').then(snap => {
+                let players = snap.val() || [];
+                players = players.filter(p => p !== null);
+
+                if (players.length < 4) {
+                    while (players.length < 4) players.push("BOT_PLACEHOLDER");
+                    players = normalizeBots(players);
+                    db.ref(`rooms/${roomId}/players`).set(players);
+                }
+
+                const initialState = {
+                    target: target, currentRound: 1, expression: "0", currentValue: 0, zeroCount: 0,
+                    permanentBonusActive: false, turnQueue: [], currentTurnData: null,
+                    lastDice: { d1: "?", d2: "?", timestamp: 0, useDouble: false }, usedNumbers: []
+                };
+                initialState.turnQueue = generateTurnQueue(1);
+                initialState.currentTurnData = initialState.turnQueue.shift();
+                db.ref(`rooms/${roomId}/gameState`).set(initialState);
+                db.ref(`rooms/${roomId}/status`).set('playing');
+            });
+        }
+
+        function generateTurnQueue(round) {
+            let roleOrder = (round % 2 !== 0) ? ['+', '-', '*', '/'] : ['/', '*', '-', '+'];
+            let executeOrder = (round % 2 !== 0) ? [0, 1, 2, 3] : [3, 2, 1, 0];
+            let freeChoicePlayers = (round % 2 !== 0) ? (round > 1 ? [0, 1] : []) : [3, 2];
+
+            let pDefaultOp = {};
+            executeOrder.forEach((pIdx, pos) => { pDefaultOp[pIdx] = roleOrder[pos]; });
+
+            let queue = [];
+            executeOrder.forEach((pIdx, pos) => {
+                let myDefault = roleOrder[pos];
+                let mateIdx = (pIdx + 2) % 4;
+                let mateDefault = pDefaultOp[mateIdx];
+                let canSwitch = freeChoicePlayers.includes(pIdx);
+                queue.push({ playerIdx: pIdx, defaultOp: myDefault, mateOp: mateDefault, canSwitch: canSwitch });
+            });
+            return queue;
+        }
+
+        let gameListenerBound = false;
+        function startGameUI() {
+            if (gameListenerBound) return;
+            gameListenerBound = true;
+
+            db.ref(`rooms/${roomId}/gameState`).on('value', snap => {
+                const state = snap.val();
+                if (state) {
+                    if (!state.turnQueue) state.turnQueue = [];
+                    localGameState = state;
+                    handleGameStateUpdate(state);
+                }
+            });
+
+            db.ref(`rooms/${roomId}/logs`).on('child_added', snap => {
+                const msg = snap.val();
+                const logDiv = document.getElementById('game-log');
+                const entry = document.createElement('div');
+                if (msg.startsWith("--- 第")) {
+                    entry.textContent = msg; entry.className = "round-divider";
+                    entry.style.color = "#4e54c8"; entry.style.fontWeight = "bold"; entry.style.borderBottom = "1px dashed #4e54c8";
+                    entry.style.marginTop = "10px"; entry.style.padding = "5px 0"; entry.style.textAlign = "center";
+                } else {
+                    entry.textContent = msg; entry.style.borderBottom = "1px solid #eee"; entry.style.padding = "4px 0";
+                }
+                logDiv.appendChild(entry); logDiv.scrollTop = logDiv.scrollHeight;
+
+                if (msg.includes("觸底歸零！暴走模式開啟")) showToast("📉 觸底歸零！<br>🔥 限制解除！");
+                else if (msg.includes("觸底！數值重置")) showToast("📉 觸底歸零！");
+                else if (msg.includes("🎉 減除隊集滿")) showToast("🏆 減除隊直接獲勝！");
+            });
+        }
+
+        function handleGameStateUpdate(state) {
+            const diceCon = document.getElementById('dice-container');
+            const d1 = document.getElementById('dice-visual-1');
+            const d2 = document.getElementById('dice-visual-2');
+            let serverTimestamp = state.lastDice.timestamp || 0;
+            if (typeof serverTimestamp === 'object') serverTimestamp = Date.now();
+
+            if (serverTimestamp > lastProcessedTimestamp && state.lastDice.d1 !== "?" && serverTimestamp !== 0) {
+                lastProcessedTimestamp = serverTimestamp;
+                diceCon.classList.remove('hidden');
+                d1.classList.add('rolling'); d2.classList.add('rolling');
+                if (state.lastDice.useDouble) d2.classList.remove('hidden'); else d2.classList.add('hidden');
+                playDiceSound();
+                if (animationInterval) clearInterval(animationInterval);
+                animationInterval = setInterval(() => {
+                    d1.textContent = Math.floor(Math.random() * 6) + 1;
+                    d2.textContent = Math.floor(Math.random() * 6) + 1;
+                }, 80);
+                renderUI(state, true);
+                if (animTimeout) clearTimeout(animTimeout);
+                animTimeout = setTimeout(() => { stopAnimationAndShowResult(state); }, ANIMATION_DURATION);
+            } else {
+                if (!animationInterval) stopAnimationAndShowResult(state, true);
+            }
+        }
+
+        function stopAnimationAndShowResult(state, immediate = false) {
+            const diceCon = document.getElementById('dice-container');
+            const d1 = document.getElementById('dice-visual-1');
+            const d2 = document.getElementById('dice-visual-2');
+            if (animationInterval) { clearInterval(animationInterval); animationInterval = null; }
+            d1.classList.remove('rolling'); d2.classList.remove('rolling');
+
+            if (state.lastDice.d1 !== "?" && state.lastDice.d1 !== undefined) {
+                diceCon.classList.remove('hidden');
+                d1.textContent = state.lastDice.d1; d2.textContent = state.lastDice.d2;
+                if (!immediate) {
+                    d1.classList.add('dice-finished'); d2.classList.add('dice-finished');
+                    setTimeout(() => { d1.classList.remove('dice-finished'); d2.classList.remove('dice-finished'); }, 500);
+                }
+                if (state.lastDice.useDouble) d2.classList.remove('hidden'); else d2.classList.add('hidden');
+            } else {
+                diceCon.classList.add('hidden');
+            }
+            renderUI(state, false);
+            checkAndRunAI(state);
+        }
+
+        function checkAndRunAI(state) {
+            const turn = state.currentTurnData;
+            if (!turn) return;
+            db.ref(`rooms/${roomId}/players`).once('value').then(snap => {
+                let players = snap.val() || [];
+                players = players.filter(p => p !== null); // Handle potential holes
+                const currentPlayerName = players[turn.playerIdx];
+
+                if (currentPlayerName && currentPlayerName.includes('🤖')) {
+                    let systemHostIndex = -1;
+                    for (let i = 0; i < players.length; i++) {
+                        if (!players[i].includes('🤖')) { systemHostIndex = i; break; }
+                    }
+                    if (myPlayerIndex === systemHostIndex) {
+                        setTimeout(() => { performAIMove(state, turn); }, 1000);
+                    }
+                }
+            });
+        }
+
+        function performAIMove(state, turn) {
+            const used = state.usedNumbers || [];
+            let available = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(n => !used.includes(n));
+            if (available.length === 0) available = [1];
+            const num = available[Math.floor(Math.random() * available.length)];
+
+            let ops = [turn.defaultOp];
+            if (turn.canSwitch && turn.mateOp && turn.mateOp !== turn.defaultOp) ops.push(turn.mateOp);
+            if (state.currentRound === 1 && turn.playerIdx === 2 && !ops.includes('+')) ops.push('+');
+            if (Math.abs(state.currentValue) < 0.001) {
+                if (turn.playerIdx === 2 && !ops.includes('+')) ops.push('+');
+                if (turn.playerIdx === 3 && !ops.includes('-')) ops.push('-');
+            }
+            let frenzySub = state.permanentBonusActive && (turn.defaultOp === '-' || turn.defaultOp === '/') && (state.currentRound % 2 === 0);
+            if (frenzySub) {
+                if (!ops.includes('-')) ops.push('-');
+                if (!ops.includes('/')) ops.push('/');
+            }
+            const op = ops[Math.floor(Math.random() * ops.length)];
+            submitMove(num, op);
+        }
+
+        function renderUI(state, isAnimating) {
+            const displayRound = state.currentRound > totalRounds ? "最終結算中..." : `${state.currentRound} / ${totalRounds}`;
+            document.getElementById('round-display').textContent = displayRound;
+            document.getElementById('target-display').textContent = state.target;
+            document.getElementById('expression-display').textContent = state.expression;
+            document.getElementById('current-eval-lcd').textContent = Math.round(state.currentValue * 100) / 100;
+            document.getElementById('zero-count-display').textContent = `📉 歸零: ${state.zeroCount || 0}/${ZERO_WIN_THRESHOLD}`;
+
+            const usedNumsDiv = document.getElementById('used-nums-display');
+            const usedNums = state.usedNumbers || [];
+            if (usedNums.length > 0) usedNumsDiv.textContent = "🚫 本輪已選: " + usedNums.join(", ");
+            else usedNumsDiv.textContent = "";
+
+            const badgeContainer = document.getElementById('status-badges');
+            badgeContainer.innerHTML = '';
+            if (state.permanentBonusActive) {
+                badgeContainer.innerHTML = '<span class="status-badge st-fire">🔥 暴走模式開啟</span>';
+                document.getElementById('lcd-bg').style.background = "#2d3436";
+            }
+
+            const turn = state.currentTurnData;
+            if (!turn) {
+                document.getElementById('submit-btn').disabled = true;
+                document.getElementById('submit-btn').textContent = "等待結算...";
+                document.getElementById('op-buttons-container').innerHTML = '';
+                document.getElementById('player-num-input').disabled = true;
+                return;
+            }
+
+            db.ref(`rooms/${roomId}/players`).once('value').then(snap => {
+                let players = snap.val() || [];
+                players = players.filter(p => p !== null);
+                const pName = players[turn.playerIdx];
+                document.getElementById('current-player-name').textContent = pName || "Unknown";
+
+                const isBotTurn = pName && pName.includes('🤖');
+                const isMyTurn = (myName === pName) && !isBotTurn;
+
+                const uiCard = document.getElementById('turn-ui');
+                const submitBtn = document.getElementById('submit-btn');
+                const numInput = document.getElementById('player-num-input');
+
+                document.getElementById('badge-double').style.display = 'none';
+                document.getElementById('badge-free').style.display = 'none';
+                uiCard.className = "card";
+
+                let frenzyAdd = state.permanentBonusActive && (turn.defaultOp === '+' || turn.defaultOp === '*');
+                let frenzySub = state.permanentBonusActive && (turn.defaultOp === '-' || turn.defaultOp === '/') && (state.currentRound % 2 === 0);
+
+                if (frenzyAdd) { uiCard.classList.add('card-frenzy-add'); document.getElementById('badge-double').style.display = 'inline-block'; }
+                if (frenzySub) { uiCard.classList.add('card-frenzy-sub'); document.getElementById('badge-free').style.display = 'inline-block'; }
+
+                if (isAnimating) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = "🎲 擲骰中...";
+                    submitBtn.style.opacity = "0.6";
+                    numInput.disabled = true;
+                    numInput.style.backgroundColor = "#eee";
+                    renderOpButtons(turn, state, submitBtn, true);
+                } else if (isMyTurn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "擲骰並計算";
+                    submitBtn.style.opacity = "1";
+                    numInput.disabled = false;
+                    numInput.style.backgroundColor = "#fff";
+                    numInput.placeholder = "輸入數字 (1-9)";
+                    renderOpButtons(turn, state, submitBtn, false);
+                } else {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = isBotTurn ? "🤖 AI 思考中..." : `等待 ${pName} 行動...`;
+                    submitBtn.style.opacity = "0.6";
+                    numInput.disabled = true;
+                    numInput.style.backgroundColor = "#eee";
+                    numInput.placeholder = "等待中...";
+                    numInput.value = "";
+                    renderOpButtons(turn, state, submitBtn, true);
+                }
+            });
+        }
+
+        function renderOpButtons(turn, state, submitBtn, readonly) {
+            const container = document.getElementById('op-buttons-container');
+            container.innerHTML = '';
+
+            let ops = [turn.defaultOp];
+            let hint = `預設: ${turn.defaultOp}`;
+
+            let frenzyAdd = state.permanentBonusActive && (turn.defaultOp === '+' || turn.defaultOp === '*');
+            let frenzySub = state.permanentBonusActive && (turn.defaultOp === '-' || turn.defaultOp === '/') && (state.currentRound % 2 === 0);
+
+            if (turn.canSwitch && turn.mateOp && turn.mateOp !== turn.defaultOp) { ops.push(turn.mateOp); hint = `可切換: ${turn.mateOp}`; }
+            if (state.currentRound === 1 && turn.playerIdx === 2 && !ops.includes('+')) { ops.push('+'); hint += " (首輪特權)"; }
+            if (Math.abs(state.currentValue) < 0.001) {
+                if (turn.playerIdx === 2 && !ops.includes('+')) { ops.push('+'); hint += " (救援+)"; }
+                if (turn.playerIdx === 3 && !ops.includes('-')) { ops.push('-'); hint += " (救援-)"; }
+            }
+            if (frenzySub) {
+                if (!ops.includes('-')) ops.push('-');
+                if (!ops.includes('/')) ops.push('/');
+                hint = "🔥 暴走自由選";
+            }
+
+            if (!readonly) {
+                if (frenzyAdd) { submitBtn.classList.add('bonus-btn'); submitBtn.textContent = "🔥 暴走雙骰"; }
+                else { submitBtn.classList.remove('bonus-btn'); submitBtn.textContent = "擲骰並計算"; }
+            }
+
+            ops.forEach((op, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'op-btn';
+                btn.textContent = op;
+                if (frenzyAdd && (op === '+' || op === '*')) btn.classList.add('bonus-double');
+                if (frenzySub) btn.style.borderColor = '#3498db';
+                if (state.currentRound === 1 && turn.playerIdx === 2 && op === '+') btn.classList.add('bonus-round1');
+                if (Math.abs(state.currentValue) < 0.001 && (op === '+' || op === '-')) btn.classList.add('bonus-rescue');
+
+                if (readonly) btn.classList.add('disabled');
+
+                btn.onclick = () => {
+                    if (readonly) return;
+                    document.querySelectorAll('.op-btn').forEach(b => {
+                        b.classList.remove('selected');
+                        b.classList.remove('selected', 'bonus-rescue');
+                        b.classList.remove('selected', 'bonus-round1');
+                        if (Math.abs(state.currentValue) < 0.001 && (b.textContent === '+' || b.textContent === '-')) b.classList.add('bonus-rescue');
+                        if (state.currentRound === 1 && turn.playerIdx === 2 && b.textContent === '+') b.classList.add('bonus-round1');
+                    });
+                    btn.classList.add('selected');
+                    if (Math.abs(state.currentValue) < 0.001 && (op === '+' || op === '-')) btn.classList.add('bonus-rescue');
+                    if (state.currentRound === 1 && turn.playerIdx === 2 && op === '+') btn.classList.add('bonus-round1');
+                    window.selectedOp = op;
+                };
+                if (idx === 0) {
+                    btn.classList.add('selected');
+                    if (Math.abs(state.currentValue) < 0.001 && (op === '+' || op === '-')) btn.classList.add('bonus-rescue');
+                    if (state.currentRound === 1 && turn.playerIdx === 2 && op === '+') btn.classList.add('bonus-round1');
+                    window.selectedOp = op;
+                }
+                container.appendChild(btn);
+            });
+            document.getElementById('op-hint').textContent = hint;
+        }
+
+        function handleRollClick() {
+            const numInput = document.getElementById('player-num-input');
+            const num = parseInt(numInput.value);
+            if (isNaN(num) || num < 1 || num > 9) return alert("請輸入 1~9");
+            const op = window.selectedOp;
+            submitMove(num, op);
+        }
+
+        function submitMove(num, op) {
+            const usedNums = localGameState.usedNumbers || [];
+            if (!myName.includes('🤖') && usedNums.includes(num)) return alert("這輪這個數字已經被用過了！");
+
+            let useDouble = false;
+            if (localGameState.permanentBonusActive && (op === '+' || op === '*')) useDouble = true;
+
+            document.getElementById('submit-btn').disabled = true;
+
+            let d1, d2, totalD, operand;
+            d1 = Math.floor(Math.random() * 6) + 1;
+            totalD = d1;
+            d2 = null;
+            if (useDouble) { d2 = Math.floor(Math.random() * 6) + 1; totalD = d1 * d2; }
+            operand = num * totalD;
+            if (op === '/' && operand === 0) {
+                d1 = Math.floor(Math.random() * 6) + 1;
+                totalD = useDouble ? d1 * d2 : d1;
+                operand = num * totalD;
+            }
+
+            let newState = { ...localGameState };
+            newState.lastDice = { d1: d1, d2: d2 || "?", useDouble: useDouble, timestamp: firebase.database.ServerValue.TIMESTAMP };
+            newState.expression += ` ${op} ${operand}`;
+            try {
+                let safeExpr = newState.expression.replace(/[^0-9+\-*/().\s]/g, '');
+                newState.currentValue = eval(safeExpr);
+            } catch (e) { newState.currentValue = 0; }
+
+            if (newState.currentValue < 0) {
+                newState.currentValue = 0; newState.expression = "0";
+                if (!newState.permanentBonusActive) { newState.permanentBonusActive = true; db.ref(`rooms/${roomId}/logs`).push("🔥 觸底歸零！暴走模式開啟！"); }
+                else { db.ref(`rooms/${roomId}/logs`).push("📉 觸底！數值重置為 0"); }
+            }
+
+            let instantWin = false;
+            if (Math.abs(newState.currentValue) < 0.001) {
+                newState.zeroCount = (newState.zeroCount || 0) + 1;
+                if (newState.zeroCount >= ZERO_WIN_THRESHOLD) {
+                    newState.winner = "subdiv_instant";
+                    db.ref(`rooms/${roomId}/logs`).push(`🎉 減除隊集滿 ${ZERO_WIN_THRESHOLD} 次歸零，直接獲勝！`);
+                    instantWin = true;
+                } else {
+                    db.ref(`rooms/${roomId}/logs`).push(`📉 觸底歸零！目前累積 ${newState.zeroCount}/${ZERO_WIN_THRESHOLD} 次`);
+                }
+            }
+
+            if (!newState.usedNumbers) newState.usedNumbers = [];
+            newState.usedNumbers.push(num);
+
+            db.ref(`rooms/${roomId}/players/${newState.currentTurnData.playerIdx}`).once('value').then(snap => {
+                const pName = snap.val();
+                db.ref(`rooms/${roomId}/logs`).push(`${pName} (${op}): ${num} x 🎲${totalD} = ${operand}`);
+
+                if (!newState.turnQueue) newState.turnQueue = [];
+                let isGameOver = false;
+                if (instantWin) {
+                    isGameOver = true;
+                    newState.turnQueue = [];
+                    newState.currentTurnData = null;
+                } else {
+                    if (newState.turnQueue.length > 0) {
+                        newState.currentTurnData = newState.turnQueue.shift();
+                    } else {
+                        newState.currentRound++;
+                        newState.usedNumbers = [];
+                        if (newState.currentRound > totalRounds) {
+                            isGameOver = true;
+                            newState.currentTurnData = null;
+                        } else {
+                            newState.turnQueue = generateTurnQueue(newState.currentRound);
+                            newState.currentTurnData = newState.turnQueue.shift();
+                            db.ref(`rooms/${roomId}/logs`).push(`--- 第 ${newState.currentRound} 輪 ---`);
+                        }
+                    }
+                }
+
+                db.ref(`rooms/${roomId}/gameState`).set(newState)
+                    .then(() => { if (isGameOver) db.ref(`rooms/${roomId}/status`).set('finished'); })
+                    .catch(e => { document.getElementById('submit-btn').disabled = false; });
+            });
+        }
+
+        function endGame() {
+            const val = localGameState.currentValue;
+            const target = localGameState.target;
+            document.getElementById('final-value').textContent = Math.round(val * 100) / 100;
+
+            const d_target = Math.abs(val - target);
+            const d_zero = Math.abs(val);
+
+            let msg = "";
+            if (localGameState.winner === "subdiv_instant") {
+                msg = "🏆 減除隊 (P2 & P4) 歸零制霸獲勝！";
+            } else if (d_target < d_zero) {
+                msg = "🎉 加乘隊 (P1 & P3) 獲勝！";
+            } else if (d_target > d_zero) {
+                msg = "🎉 減除隊 (P2 & P4) 獲勝！";
+            } else {
+                msg = "🤝 平手！";
+            }
+            document.getElementById('winner-announce').textContent = msg;
+
+            if (isHost) document.getElementById('host-controls').style.display = 'flex';
+            else document.getElementById('host-controls').style.display = 'none';
+        }
+    </script>
+</body>
+
+</html>
